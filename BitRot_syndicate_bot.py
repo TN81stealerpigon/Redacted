@@ -5,9 +5,9 @@ from datetime import datetime
 from groq import Groq
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────
-DISCORD_TOKEN = 'MTQ3OTE1Njc5MjYyOTEzMzQ3NQ.G3YQTG.xszvSTNe_knPcRNRm-fVIvnee82X4cp4nFzp8Q'
-MAIN_API_KEY = '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'
-SUMM_API_KEY = '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'
+DISCORD_TOKEN = os.environ.get('DISCORD_TOKEN')
+MAIN_API_KEY = os.environ.get('MAIN_API_KEY')
+SUMM_API_KEY = os.environ.get('SUMM_API_KEY')
 MODEL_MAIN = "moonshotai/kimi-k2-instruct"
 MODEL_SUMM = "moonshotai/kimi-k2-instruct"
 MEMORY_DIR = "bitrot_memory"
@@ -202,3 +202,4 @@ class BitRotBot(discord.Client):
 
 if __name__ == "__main__":
     BitRotBot().run(DISCORD_TOKEN)
+
