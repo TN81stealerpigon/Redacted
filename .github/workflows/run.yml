@@ -28,6 +28,6 @@ jobs:
           SUMM_API_KEY: ${{ secrets.SUMM_API_KEY }}
         run: |
           while true; do
-            python bitrot_syndicate_bot.py
+            python BitRot_syndicate_bot.py
             sleep 10
           done
