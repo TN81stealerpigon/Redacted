@@ -1,6 +1,7 @@
-# Hide everything except workflows
+# Hide everything except workflows and bot file (if you want it visible)
 /*
 !.github/
 !.github/workflows/
 !.gitignore
 !README.md
+!BitRot_syndicate_bot.py
