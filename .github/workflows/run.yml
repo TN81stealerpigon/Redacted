@@ -19,7 +19,9 @@ jobs:
       - name: Install dependencies
         run: pip install discord.py groq
       - name: Write bot file
-        run: echo "${{ secrets.BOT_CODE }}" > bitrot_syndicate_bot.py
+        env:
+          BOT_CODE: ${{ secrets.BOT_CODE }}
+        run: python3 -c "import os; open('bitrot_syndicate_bot.py', 'w').write(os.environ['BOT_CODE'])"
       - name: Run BitRot
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
