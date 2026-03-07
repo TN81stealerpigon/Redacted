@@ -1,4 +1,4 @@
-name: BitRot Runtime
+name: BitRot 24/7
 
 on:
   schedule:
@@ -7,23 +7,27 @@ on:
   push:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   run-bitrot:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      
       - name: Install dependencies
-        run: |
-          pip install discord.py groq
-      
+        run: pip install discord.py groq
       - name: Run BitRot
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           MAIN_API_KEY: ${{ secrets.MAIN_API_KEY }}
           SUMM_API_KEY: ${{ secrets.SUMM_API_KEY }}
-        run: python BitRot_syndicate_bot.py
+        run: |
+          while true; do
+            python bitrot_syndicate_bot.py
+            sleep 10
+          done
