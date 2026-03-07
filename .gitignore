@@ -1,0 +1,6 @@
+# Hide everything except workflows
+/*
+!.github/
+!.github/workflows/
+!.gitignore
+!README.md
