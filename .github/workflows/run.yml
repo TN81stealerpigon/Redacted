@@ -1,4 +1,4 @@
-name: BitRot Nuke Previous Runs
+name: BitRot Cleanup - Kill Lingering Runs
 
 on:
   workflow_dispatch:
@@ -8,7 +8,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  nuke:
+  cleanup:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - run: echo "Cancelling any previous runs in this group..."
+      - name: Purpose
+        run: |
+          echo "This is a cleanup workflow."
+          echo "Triggering it cancels any still-running/queued runs in the group."
+          echo "Dead/failed runs stay until manually deleted via UI or API."
+          sleep 10
+          echo "Done."
