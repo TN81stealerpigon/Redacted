@@ -1,33 +1,77 @@
-name: Nuke - Delete As Many Runs As Possible
+name: BitRot 24/7
 
 on:
+  schedule:
+    - cron: "0 */2 * * *"          # Every 2 hours base → + random 0–2h delay = ~2–4h restarts
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
-permissions:
-  actions: write
+concurrency:
+  group: bot-single-instance
+  cancel-in-progress: true
 
 jobs:
-  aggressive-delete:
+  run-bitrot:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete runs older than 0 days (max aggressive)
-        uses: Mattraks/delete-workflow-runs@v2
-        with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          retain_days: 0
-          keep_minimum_runs: 0
-          use_daily_retention: false
-          delete_workflow_by_state_pattern: ALL
-          delete_run_by_conclusion_pattern: ALL
-          dry_run: false
+      - uses: actions/checkout@v4
 
-      - name: Delete orphan / deleted-workflow runs (extra pass)
-        uses: Mattraks/delete-workflow-runs@v2
+      - uses: actions/setup-python@v5
         with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          retain_days: 0
-          keep_minimum_runs: 0
-          delete_workflow_pattern: .*
-          delete_run_by_conclusion_pattern: .*
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir discord.py cryptography groq
+
+      - name: Write bot file
+        env:
+          BOT_CODE: ${{ secrets.BOT_CODE }}
+        run: printf '%s\n' "$BOT_CODE" > bitrot_syndicate_bot.py
+
+      - name: Random delay for 2–4 hour interval
+        run: |
+          RANDOM_HOURS=$((RANDOM % 3))           # 0, 1 or 2
+          EXTRA_SECONDS=$((RANDOM % 3600))       # 0–3599 s
+          DELAY=$((RANDOM_HOURS * 3600 + EXTRA_SECONDS))
+          echo "Delaying $DELAY seconds (~$RANDOM_HOURS–$((RANDOM_HOURS+1)) hours)"
+          sleep $DELAY
+
+      - name: Run BitRot
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          MAIN_API_KEY: ${{ secrets.MAIN_API_KEY }}
+          SUMM_API_KEY: ${{ secrets.SUMM_API_KEY }}
+        run: |
+          [ -z "$DISCORD_TOKEN" ] && { echo "DISCORD_TOKEN missing"; exit 1; }
+
+          python bitrot_syndicate_bot.py &
+          BOT_PID=$!
+
+          sleep 12
+
+          kill -0 $BOT_PID 2>/dev/null || { echo "Bot failed to start"; exit 1; }
+
+          trap '
+            echo "Cancel → stopping bot"
+            kill -TERM $BOT_PID 2>/dev/null || true
+            sleep 5
+            kill -KILL $BOT_PID 2>/dev/null || true
+            wait $BOT_PID 2>/dev/null || true
+          ' TERM INT
+
+          wait $BOT_PID
+
+      - name: Save conversation state
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          [ -f conversation_state.json ] || { echo "No state file"; exit 0; }
+
+          git add conversation_state.json
+          git commit -m "Auto-save state $(date -u +'%Y-%m-%d %H:%M:%S UTC')" || echo "No changes"
+          git push origin HEAD:main || echo "Push failed"
