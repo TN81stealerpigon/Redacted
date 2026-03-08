@@ -1,23 +1,14 @@
-name: BitRot Nuke (Kill All Previous)
+name: BitRot Nuke Previous Runs
 
 on:
-  workflow_dispatch:          # Manual trigger only — click "Run workflow" in Actions tab when you want to nuke
-  # Optionally add schedule if you want periodic auto-nuke, but manual is safer
-  # schedule:
-  #   - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 concurrency:
   group: bot-single-instance
   cancel-in-progress: true
 
 jobs:
-  nuke-previous:
+  nuke:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger cancellation of any old runs
-        run: |
-          echo "This workflow only exists to cancel/kill ALL previous runs in the 'bot-single-instance' group."
-          echo "GitHub automatically sends termination signals to old runners → processes (including any lingering bots) get killed."
-          echo "No bot starts here. Old ones should die within seconds to ~5 min max."
-          sleep 15  # Optional: give extra time for old run to receive + act on cancel
-          echo "Nuke complete. Check your Discord — old bot should be offline now."
+      - run: echo "Cancelling any previous runs in this group..."
