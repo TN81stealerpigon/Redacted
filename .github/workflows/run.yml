@@ -1,21 +1,20 @@
-name: BitRot Cleanup - Kill Lingering Runs
+name: Cleanup - Delete Old Workflow Runs
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Lets you run it manually from Actions tab
 
-concurrency:
-  group: bot-single-instance
-  cancel-in-progress: true
+permissions:
+  actions: write      # Required to delete runs
 
 jobs:
-  cleanup:
+  delete-old-runs:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Purpose
-        run: |
-          echo "This is a cleanup workflow."
-          echo "Triggering it cancels any still-running/queued runs in the group."
-          echo "Dead/failed runs stay until manually deleted via UI or API."
-          sleep 10
-          echo "Done."
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 1             # Delete runs older than 1 day (change to 0 or 7 if needed)
+          keep_minimum_runs: 0       # Delete everything possible (0 = keep none)
+          delete_only_cancelled: false  # false = delete all (success/fail/cancel)
