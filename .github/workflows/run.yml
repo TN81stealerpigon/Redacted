@@ -31,29 +31,6 @@ jobs:
           BOT_CODE: ${{ secrets.BOT_CODE }}
         run: printf '%s\n' "$BOT_CODE" > bitrot_syndicate_bot.py
 
-      - name: Clean up old runs
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          REPO: ${{ github.repository }}
-        run: |
-          CURRENT=${{ github.run_id }}
-          gh run list --repo "$REPO" --workflow "BitRot 24/7" \
-            --json databaseId,status \
-            --jq '.[] | select(.status != "completed") | .databaseId' \
-          | while read ID; do
-            [ "$ID" = "$CURRENT" ] && continue
-            gh run cancel "$ID" --repo "$REPO" 2>/dev/null || true
-            sleep 3
-            gh run delete "$ID" --repo "$REPO" 2>/dev/null || true
-          done
-          gh run list --repo "$REPO" --workflow "BitRot 24/7" \
-            --json databaseId,status \
-            --jq '.[] | select(.status == "completed") | .databaseId' \
-          | while read ID; do
-            [ "$ID" = "$CURRENT" ] && continue
-            gh run delete "$ID" --repo "$REPO" 2>/dev/null || true
-          done
-
       - name: Run BitRot
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
@@ -62,14 +39,11 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           [ -z "$DISCORD_TOKEN" ] && { echo "DISCORD_TOKEN missing"; exit 1; }
-
           python bitrot_syndicate_bot.py &
           BOT_PID=$!
-
           sleep 12
           kill -0 $BOT_PID 2>/dev/null || { echo "Bot failed to start"; exit 1; }
           echo "BitRot running (PID $BOT_PID)"
-
           trap '
             kill -TERM $BOT_PID 2>/dev/null || true
             sleep 5
@@ -77,7 +51,6 @@ jobs:
             wait $BOT_PID 2>/dev/null || true
             exit 0
           ' TERM INT
-
           wait $BOT_PID
 
       - name: Save state
@@ -89,5 +62,34 @@ jobs:
           git config --global user.name "bitrot-bot"
           git config --global user.email "bitrot@bot"
           git add bitrot_memory/
-          git commit -m "state $(date -u +'%Y-%m-%d %H:%M UTC')" || exit 0
+          git commit -m "state $(date -u +'%Y-%m-%d %H:%M UTC')" || true
           git push origin HEAD:main || echo "Push failed"
+
+      - name: Clean up old runs
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          CURRENT=${{ github.run_id }}
+          echo "Cleaning up old runs..."
+          gh run list --repo "$REPO" --workflow "BitRot 24/7" \
+            --json databaseId,status --limit 50 \
+            --jq '.[] | select(.status != "completed") | .databaseId' \
+          | while read ID; do
+            [ "$ID" = "$CURRENT" ] && continue
+            echo "Cancelling $ID..."
+            gh run cancel "$ID" --repo "$REPO" 2>/dev/null || true
+            sleep 5
+            echo "Deleting $ID..."
+            gh run delete "$ID" --repo "$REPO" 2>/dev/null || true
+          done
+          gh run list --repo "$REPO" --workflow "BitRot 24/7" \
+            --json databaseId,status --limit 50 \
+            --jq '.[] | select(.status == "completed") | .databaseId' \
+          | while read ID; do
+            [ "$ID" = "$CURRENT" ] && continue
+            echo "Deleting completed $ID..."
+            gh run delete "$ID" --repo "$REPO" 2>/dev/null || true
+          done
+          echo "Cleanup done"
