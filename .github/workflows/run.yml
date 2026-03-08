@@ -2,7 +2,7 @@ name: BitRot 24/7
 
 on:
   schedule:
-    - cron: "0 */2 * * *"          # Every 2 hours base → + random 0–2h delay = ~2–4h restarts
+    - cron: "*/5 * * * *"          # Every 5 min → quick restart after 6h GitHub kill
   workflow_dispatch:
   push:
     branches: [ main ]
@@ -14,6 +14,8 @@ concurrency:
 jobs:
   run-bitrot:
     runs-on: ubuntu-latest
+    timeout-minutes: 360           # Explicit max (hard limit anyway)
+
     steps:
       - uses: actions/checkout@v4
 
@@ -29,15 +31,7 @@ jobs:
           BOT_CODE: ${{ secrets.BOT_CODE }}
         run: printf '%s\n' "$BOT_CODE" > bitrot_syndicate_bot.py
 
-      - name: Random delay for 2–4 hour interval
-        run: |
-          RANDOM_HOURS=$((RANDOM % 3))           # 0, 1 or 2
-          EXTRA_SECONDS=$((RANDOM % 3600))       # 0–3599 s
-          DELAY=$((RANDOM_HOURS * 3600 + EXTRA_SECONDS))
-          echo "Delaying $DELAY seconds (~$RANDOM_HOURS–$((RANDOM_HOURS+1)) hours)"
-          sleep $DELAY
-
-      - name: Run BitRot
+      - name: Run BitRot (up to 6 hours max)
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           MAIN_API_KEY: ${{ secrets.MAIN_API_KEY }}
@@ -52,17 +46,20 @@ jobs:
 
           kill -0 $BOT_PID 2>/dev/null || { echo "Bot failed to start"; exit 1; }
 
+          echo "Bot running — will continue until GitHub kills job at ~6 hours"
+
           trap '
-            echo "Cancel → stopping bot"
+            echo "Cancel or timeout → killing bot"
             kill -TERM $BOT_PID 2>/dev/null || true
             sleep 5
             kill -KILL $BOT_PID 2>/dev/null || true
             wait $BOT_PID 2>/dev/null || true
+            exit 0
           ' TERM INT
 
-          wait $BOT_PID
+          wait $BOT_PID   # Wait forever (or until GitHub timeout kills the job)
 
-      - name: Save conversation state
+      - name: Save state
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
@@ -70,8 +67,8 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
-          [ -f conversation_state.json ] || { echo "No state file"; exit 0; }
+          [ -f conversation_state.json ] || exit 0
 
           git add conversation_state.json
-          git commit -m "Auto-save state $(date -u +'%Y-%m-%d %H:%M:%S UTC')" || echo "No changes"
+          git commit -m "Auto-save $(date -u +'%Y-%m-%d %H:%M:%S UTC')" || echo "No changes"
           git push origin HEAD:main || echo "Push failed"
