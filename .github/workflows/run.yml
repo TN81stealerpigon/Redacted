@@ -1,23 +1,23 @@
-- name: Install dependencies
-  run: pip install --no-cache-dir discord.py cryptography groq
+name: BitRot Nuke (Kill All Previous)
 
-- name: Write bot file
-  env:
-    BOT_CODE: ${{ secrets.BOT_CODE }}
-  run: printf '%s\n' "$BOT_CODE" > bitrot_syndicate_bot.py
+on:
+  workflow_dispatch:          # Manual trigger only — click "Run workflow" in Actions tab when you want to nuke
+  # Optionally add schedule if you want periodic auto-nuke, but manual is safer
+  # schedule:
+  #   - cron: '*/5 * * * *'
 
-- name: Run BitRot
-  env:
-    DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-    MAIN_API_KEY: ${{ secrets.MAIN_API_KEY }}
-    SUMM_API_KEY: ${{ secrets.SUMM_API_KEY }}
-  run: |
-    python bitrot_syndicate_bot.py &
-    BOT_PID=$!
-    sleep 8
-    if ! kill -0 $BOT_PID 2>/dev/null; then
-      echo "Bot failed to start or crashed"
-      exit 1
-    fi
-    trap 'kill -TERM $BOT_PID 2>/dev/null; sleep 3; kill -KILL $BOT_PID 2>/dev/null || true; wait $BOT_PID' TERM INT
-    wait $BOT_PID
+concurrency:
+  group: bot-single-instance
+  cancel-in-progress: true
+
+jobs:
+  nuke-previous:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger cancellation of any old runs
+        run: |
+          echo "This workflow only exists to cancel/kill ALL previous runs in the 'bot-single-instance' group."
+          echo "GitHub automatically sends termination signals to old runners → processes (including any lingering bots) get killed."
+          echo "No bot starts here. Old ones should die within seconds to ~5 min max."
+          sleep 15  # Optional: give extra time for old run to receive + act on cancel
+          echo "Nuke complete. Check your Discord — old bot should be offline now."
