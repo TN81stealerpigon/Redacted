@@ -2,7 +2,7 @@ name: BitRot 24/7
 
 on:
   schedule:
-    - cron: "*/5 * * * *"          # Every 5 min → quick restart after 6h GitHub kill
+    - cron: "*/5 * * * *"
   workflow_dispatch:
   push:
     branches: [ main ]
@@ -14,7 +14,7 @@ concurrency:
 jobs:
   run-bitrot:
     runs-on: ubuntu-latest
-    timeout-minutes: 360           # Explicit max (hard limit anyway)
+    timeout-minutes: 360
 
     steps:
       - uses: actions/checkout@v4
@@ -24,14 +24,37 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install --no-cache-dir discord.py cryptography groq
+        run: pip install --no-cache-dir discord.py groq aiohttp
 
       - name: Write bot file
         env:
           BOT_CODE: ${{ secrets.BOT_CODE }}
         run: printf '%s\n' "$BOT_CODE" > bitrot_syndicate_bot.py
 
-      - name: Run BitRot (up to 6 hours max)
+      - name: Clean up old runs
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          CURRENT=${{ github.run_id }}
+          gh run list --repo "$REPO" --workflow "BitRot 24/7" \
+            --json databaseId,status \
+            --jq '.[] | select(.status != "completed") | .databaseId' \
+          | while read ID; do
+            [ "$ID" = "$CURRENT" ] && continue
+            gh run cancel "$ID" --repo "$REPO" 2>/dev/null || true
+            sleep 3
+            gh run delete "$ID" --repo "$REPO" 2>/dev/null || true
+          done
+          gh run list --repo "$REPO" --workflow "BitRot 24/7" \
+            --json databaseId,status \
+            --jq '.[] | select(.status == "completed") | .databaseId' \
+          | while read ID; do
+            [ "$ID" = "$CURRENT" ] && continue
+            gh run delete "$ID" --repo "$REPO" 2>/dev/null || true
+          done
+
+      - name: Run BitRot
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           MAIN_API_KEY: ${{ secrets.MAIN_API_KEY }}
@@ -43,13 +66,10 @@ jobs:
           BOT_PID=$!
 
           sleep 12
-
           kill -0 $BOT_PID 2>/dev/null || { echo "Bot failed to start"; exit 1; }
-
-          echo "Bot running — will continue until GitHub kills job at ~6 hours"
+          echo "BitRot running (PID $BOT_PID)"
 
           trap '
-            echo "Cancel or timeout → killing bot"
             kill -TERM $BOT_PID 2>/dev/null || true
             sleep 5
             kill -KILL $BOT_PID 2>/dev/null || true
@@ -57,18 +77,16 @@ jobs:
             exit 0
           ' TERM INT
 
-          wait $BOT_PID   # Wait forever (or until GitHub timeout kills the job)
+          wait $BOT_PID
 
       - name: Save state
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-          [ -f conversation_state.json ] || exit 0
-
-          git add conversation_state.json
-          git commit -m "Auto-save $(date -u +'%Y-%m-%d %H:%M:%S UTC')" || echo "No changes"
+          [ -d bitrot_memory ] || exit 0
+          git config --global user.name "bitrot-bot"
+          git config --global user.email "bitrot@bot"
+          git add bitrot_memory/
+          git commit -m "state $(date -u +'%Y-%m-%d %H:%M UTC')" || exit 0
           git push origin HEAD:main || echo "Push failed"
