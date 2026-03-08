@@ -1,20 +1,33 @@
-name: Cleanup - Delete Old Workflow Runs
+name: Nuke - Delete As Many Runs As Possible
 
 on:
-  workflow_dispatch:  # Lets you run it manually from Actions tab
+  workflow_dispatch:
 
 permissions:
-  actions: write      # Required to delete runs
+  actions: write
 
 jobs:
-  delete-old-runs:
+  aggressive-delete:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete old workflow runs
+      - name: Delete runs older than 0 days (max aggressive)
         uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ github.token }}
           repository: ${{ github.repository }}
-          retain_days: 1             # Delete runs older than 1 day (change to 0 or 7 if needed)
-          keep_minimum_runs: 0       # Delete everything possible (0 = keep none)
-          delete_only_cancelled: false  # false = delete all (success/fail/cancel)
+          retain_days: 0
+          keep_minimum_runs: 0
+          use_daily_retention: false
+          delete_workflow_by_state_pattern: ALL
+          delete_run_by_conclusion_pattern: ALL
+          dry_run: false
+
+      - name: Delete orphan / deleted-workflow runs (extra pass)
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 0
+          delete_workflow_pattern: .*
+          delete_run_by_conclusion_pattern: .*
