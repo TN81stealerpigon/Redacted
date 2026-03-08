@@ -1,39 +1,18 @@
-name: BitRot 24/7
+name: BitRot Killer (Process Nuke)
+
 on:
-  schedule:
-    - cron: "*/5 * * * *"
-  workflow_dispatch:
-  push:
-    branches: [ main ]
+  workflow_dispatch:  # only manual trigger, so you control when to nuke
+
 concurrency:
   group: bot-single-instance
   cancel-in-progress: true
+
 jobs:
-  run-bitrot:
+  nuke-old:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: pip install discord.py groq
-      - name: Write bot file
-        env:
-          BOT_CODE: ${{ secrets.BOT_CODE }}
-        run: python3 -c "import os; open('bitrot_syndicate_bot.py', 'w').write(os.environ['BOT_CODE'])"
-      - name: Run BitRot
-        env:
-          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-          MAIN_API_KEY: ${{ secrets.MAIN_API_KEY }}
-          SUMM_API_KEY: ${{ secrets.SUMM_API_KEY }}
-        run: |
-          python bitrot_syndicate_bot.py &
-          BOT_PID=$!
-          sleep 5
-          if ! kill -0 $BOT_PID 2>/dev/null; then
-            echo "Bot failed to start"
-            exit 1
-          fi
-          trap "kill $BOT_PID 2>/dev/null; wait $BOT_PID 2>/dev/null" EXIT
-          wait $BOT_PID
+      - run: |
+          echo "This run exists only to cancel/kill any previous run in the same concurrency group."
+          echo "GitHub will automatically terminate the old runner's processes (including any lingering bots)."
+          sleep 10  # optional: give extra time for old run to receive cancel signal
+          echo "Done. Old instances should now be dead."
