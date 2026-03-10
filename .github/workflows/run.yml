@@ -1,95 +1,43 @@
-name: BitRot 24/7
+name: Nuke All Workflow Runs
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
-  workflow_dispatch:
-  push:
-    branches: [ main ]
+  workflow_dispatch:  # Trigger manually from the Actions tab
 
-concurrency:
-  group: bot-single-instance
-  cancel-in-progress: true
+permissions:
+  actions: write       # Required to delete runs
 
 jobs:
-  run-bitrot:
+  nuke-all-runs:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
-
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
-        run: pip install --no-cache-dir discord.py groq aiohttp google-genai
-
-      - name: Write bot file
+      - name: Delete ALL completed workflow runs (including dead/stuck ones)
         env:
-          BOT_CODE: ${{ secrets.BOT_CODE }}
-        run: printf '%s\n' "$BOT_CODE" > bitrot_syndicate_bot.py
-
-      - name: Run BitRot
-        env:
-          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-          MAIN_API_KEY: ${{ secrets.MAIN_API_KEY }}
-          SUMM_API_KEY: ${{ secrets.SUMM_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          [ -z "$DISCORD_TOKEN" ] && { echo "DISCORD_TOKEN missing"; exit 1; }
-          python bitrot_syndicate_bot.py &
-          BOT_PID=$!
-          sleep 12
-          kill -0 $BOT_PID 2>/dev/null || { echo "Bot failed to start"; exit 1; }
-          echo "BitRot running (PID $BOT_PID)"
-          trap '
-            kill -TERM $BOT_PID 2>/dev/null || true
-            sleep 5
-            kill -KILL $BOT_PID 2>/dev/null || true
-            wait $BOT_PID 2>/dev/null || true
-            exit 0
-          ' TERM INT
-          wait $BOT_PID
-
-      - name: Save state
-        if: always()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          [ -d bitrot_memory ] || exit 0
-          git config --global user.name "bitrot-bot"
-          git config --global user.email "bitrot@bot"
-          git add bitrot_memory/
-          git commit -m "state $(date -u +'%Y-%m-%d %H:%M UTC')" || true
-          git push origin HEAD:main || echo "Push failed"
-
-      - name: Clean up old runs
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
-          CURRENT=${{ github.run_id }}
-          echo "Cleaning up old runs..."
-          gh run list --repo "$REPO" --workflow "BitRot 24/7" \
-            --json databaseId,status --limit 50 \
-            --jq '.[] | select(.status != "completed") | .databaseId' \
-          | while read ID; do
-            [ "$ID" = "$CURRENT" ] && continue
-            echo "Cancelling $ID..."
-            gh run cancel "$ID" --repo "$REPO" 2>/dev/null || true
-            sleep 5
-            echo "Deleting $ID..."
-            gh run delete "$ID" --repo "$REPO" 2>/dev/null || true
+          echo "Fetching all completed workflow run IDs..."
+          run_ids=$(gh api --paginate \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/$REPO/actions/runs" \
+            --jq '.workflow_runs[] | select(.status == "completed" or .status == "failure" or .status == "cancelled") | .id')
+
+          count=0
+          total=$(echo "$run_ids" | wc -l)
+
+          if [ -z "$run_ids" ]; then
+            echo "No completed/failed/cancelled runs found."
+            exit 0
+          fi
+
+          echo "Found $total runs to delete."
+
+          for id in $run_ids; do
+            echo "Deleting run $id ($((++count))/$total)..."
+            gh api \
+              -X DELETE \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/$REPO/actions/runs/$id" || echo "Failed to delete $id (might already be gone)"
+            sleep 0.4   # Gentle rate-limit avoidance (~150 req/min)
           done
-          gh run list --repo "$REPO" --workflow "BitRot 24/7" \
-            --json databaseId,status --limit 50 \
-            --jq '.[] | select(.status == "completed") | .databaseId' \
-          | while read ID; do
-            [ "$ID" = "$CURRENT" ] && continue
-            echo "Deleting completed $ID..."
-            gh run delete "$ID" --repo "$REPO" 2>/dev/null || true
-          done
-          echo "Cleanup done"
+
+          echo "Deletion attempt finished."
