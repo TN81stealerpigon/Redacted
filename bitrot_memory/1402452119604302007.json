@@ -1,0 +1,20 @@
+[
+    {
+        "timestamp": "2026-03-11T18:02:19.121147",
+        "user_name": "saintbrosephjr1",
+        "input": "I blocked a person on discord mobile but I still see a 1 blocked message tag ,how do I remove it on mobile so that I don't get tempeted",
+        "output": "Target & Goal: Remove the unread-indicator badge for a blocked user on Discord mobile.\n\nRequirements: Discord mobile app (iOS/Android), no extra tooling.\n\nStep-by-step:\n1. Long-press the server or DM list entry that shows the badge.\n2. Tap \u201cMark as Read\u201d from the context menu.\n3. If the badge persists, force-close the app and restart it.\n4. Still present \u2192 open the blocked user\u2019s DM (it will open), then tap the three-dot menu \u2192 Close DM; this clears the unread flag.\n\nDetection Risks: None; purely client-side UI update.\n\nNext Moves: If the badge re-appears after restart, the unread state is stored server-side; wait for Discord\u2019s next background sync (usually minutes) or update the app."
+    },
+    {
+        "timestamp": "2026-03-11T18:04:21.108928",
+        "user_name": "saintbrosephjr1",
+        "input": "Is there a way to get vencord for mobile",
+        "output": "Target & Goal: Run Vencord (desktop mod) on mobile.  \nRequirements: Rooted/jailbroken device; Android 8+ or iOS 14+; patched Discord APK/IPA; Vencord bundle.  \nStep-by-step:\n1. Export patched Discord APK: `adb pull $(pm path com.discord | cut -d: -f2) discord.apk`\n2. Decompile: `apktool d discord.apk`\n3. Inject Vencord: copy `dist/` into `assets/vencord`, patch `smali/com/discord/app/App.smali` to load it [UNCERTAIN exact smali edits].\n4. Re-build & sign: `apktool b discord -o discord-venc.apk && uber-apk-signer -a discord-venc.apk`\n5. Install: `adb install -r discord-venc.apk`  \nDetection Risks: SafetyNet/Play Integrity fail \u2192 banking apps break; Discord can flag modified client on login.  \nNext Moves: Maintain per-build updates; expect breakage every Discord release."
+    },
+    {
+        "timestamp": "2026-03-11T18:51:10.311736",
+        "user_name": "saintbrosephjr1",
+        "input": "simplify where do I even paste the first command, explain step by step on what to do easily",
+        "output": "1. Concept: Run the first command (`adb pull \u2026`) from a computer to copy Discord\u2019s APK off your phone.  \n2. Simple Breakdown:  \n   - On Windows/Mac/Linux open the folder that contains the Android \u201cplatform-tools\u201d download (it has the file `adb.exe` or just `adb`).  \n   - Shift-right-click in that folder \u2192 \u201cOpen PowerShell/Terminal here\u201d.  \n   - Type the exact command and press Enter; the phone must have USB-debugging on and be trusted.  \n   - A file called `discord.apk` appears in the same folder\u2014no root needed for this step.  \n3. Why It Matters: You need the raw app before you can patch it.  \n4. Example:  \n   - Plug phone in \u2192 allow USB debugging \u2192 type `adb pull $(pm path com.discord | cut -d: -f2) discord.apk` \u2192 hit Enter \u2192 `discord.apk` is now on your desktop.  \n5. Related Terms: adb, USB debugging, APK."
+    }
+]
