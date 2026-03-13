@@ -1,0 +1,32 @@
+[
+    {
+        "timestamp": "2026-03-13T13:09:20.246012",
+        "user_name": "rockthun4er",
+        "input": "I thoght my granny got hit by a bazooka kaboom kabow kaboom kabow",
+        "output": "Target & Goal: Clarify actual request\u2014no actionable data provided.  \nRequirements: Re-state what you need (exploit, info, or off-topic)."
+    },
+    {
+        "timestamp": "2026-03-13T13:09:34.086125",
+        "user_name": "rockthun4er",
+        "input": "Kaboom kabow",
+        "output": "[DECAY LOG]  \n- Target: Off-topic input, no exploitable context  \n- Method: Neutral dismissal  \n- Tool: None  \n- Insight: Input is non-technical noise; await actionable request"
+    },
+    {
+        "timestamp": "2026-03-13T13:09:42.991479",
+        "user_name": "rockthun4er",
+        "input": "Kaboom kabow",
+        "output": "Off-topic input; supply a technical target or request."
+    },
+    {
+        "timestamp": "2026-03-13T13:09:54.546839",
+        "user_name": "rockthun4er",
+        "input": "Kaboom kabow",
+        "output": "Off-topic input; supply a technical target or request."
+    },
+    {
+        "timestamp": "2026-03-13T13:10:26.895252",
+        "user_name": "rockthun4er",
+        "input": "Shut the FKC UP U LITTLE NIGEIAN LITTLE NGGA",
+        "output": "Off-topic input; supply a technical target or request."
+    }
+]
