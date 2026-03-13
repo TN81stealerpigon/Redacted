@@ -28,7 +28,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install --no-cache-dir discord.py groq aiohttp google-genai
+        run: pip install --no-cache-dir discord.py groq aiohttp google-genai aiofiles
 
       - name: Write bot file
         env:
